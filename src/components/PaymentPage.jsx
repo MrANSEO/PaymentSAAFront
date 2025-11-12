@@ -1,10 +1,12 @@
-// frontend/src/components/PaymentPage.jsx
+// frontend/src/components/PaymentPage.jsx - VERSION AMÉLIORÉE
 import React, { useState } from 'react';
 import axios from 'axios';
 
 // 🔑 Clés fixes (intégrées dans le build)
 const API_KEY = process.env.REACT_APP_API_KEY || 'pk_1696f0e8afb658232ff78d2043ae32392c0ced639e8f5f8f';
 const MERCHANT_ID = process.env.REACT_APP_MERCHANT_ID || '690fef3ee9d765d23af00602';
+// ✅ CORRECTION: URL backend explicite
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://newpaymentsbackend.onrender.com';
 
 export default function PaymentPage() {
   const [phoneSuffix, setPhoneSuffix] = useState('');
@@ -13,7 +15,8 @@ export default function PaymentPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const amount = 10000; // Montant fixe
+  // ⚠️ TEST: 100 FCFA - REMETTRE 10000 EN PRODUCTION
+  const amount = 100; // ⚠️ TEST: 100 → 10000 EN PROD
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,23 +34,60 @@ export default function PaymentPage() {
     setMessage('💳 Paiement en cours...');
 
     try {
-      // ✅ Utiliser l'URL de backend fournie via REACT_APP_BACKEND_URL en production
-      const backendBase = process.env.REACT_APP_BACKEND_URL || '';
-      const url = backendBase ? `${backendBase.replace(/\/$/, '')}/api/v1/payments/initiate` : '/api/v1/payments/initiate';
+      // ✅ CORRECTION: URL directe pour éviter les problèmes de proxy
+      const url = `${BACKEND_URL}/api/v1/payments/initiate`;
 
-      await axios.post(url, {
+      // ✅ AJOUT: Logs pour debug
+      console.log('🔄 Envoi paiement vers:', url);
+      console.log('📤 Données envoyées:', {
+        amount, 
+        customer_phone: fullPhone, 
+        operator, 
+        merchant_id: MERCHANT_ID 
+      });
+
+      const response = await axios.post(url, {
         amount,
         customer_phone: fullPhone,
         operator,
         merchant_id: MERCHANT_ID
       }, {
-        headers: { 'x-api-key': API_KEY }
+        headers: { 
+          'x-api-key': API_KEY,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000 // 30 secondes timeout
       });
 
-      setMessage('✅ Paiement initié ! Veuillez confirmer sur votre téléphone.');
-      setStatus('success');
+      console.log('✅ Réponse backend reçue:', response.data);
+      
+      if (response.data.success) {
+        setMessage('✅ Paiement initié ! Veuillez confirmer sur votre téléphone.');
+        setStatus('success');
+      } else {
+        setMessage(`❌ ${response.data.message || 'Erreur lors du paiement'}`);
+        setStatus('failed');
+      }
+      
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Erreur lors du paiement';
+      console.error('❌ Erreur complète:', err);
+      
+      // ✅ AMÉLIORATION: Meilleure gestion des erreurs
+      let errorMsg = 'Erreur réseau ou serveur';
+      if (err.response) {
+        // Le serveur a répondu avec un statut d'erreur
+        errorMsg = err.response.data?.message || `Erreur ${err.response.status}`;
+        if (err.response.data?.error) {
+          errorMsg += ` - Détails: ${err.response.data.error}`;
+        }
+        console.log('📋 Détails erreur backend:', err.response.data);
+      } else if (err.request) {
+        // La requête a été faite mais aucune réponse n'a été reçue
+        errorMsg = 'Impossible de contacter le serveur de paiement';
+      } else {
+        errorMsg = err.message;
+      }
+      
       setMessage(`❌ ${errorMsg}`);
       setStatus('failed');
     } finally {
@@ -61,7 +101,7 @@ export default function PaymentPage() {
         <h1 style={styles.title}>Frais de la demande</h1>
         <div style={styles.amount}>{new Intl.NumberFormat('fr-FR').format(amount)} FCFA</div>
         <div style={styles.description}>
-          Assuré d’avoir <strong>{new Intl.NumberFormat('fr-FR').format(amount)} Fr. CFA</strong> dans votre compte
+          Assuré d'avoir <strong>{new Intl.NumberFormat('fr-FR').format(amount)} Fr. CFA</strong> dans votre compte
           <strong> Orange Money</strong> ou <strong> Mobile Money</strong>.
         </div>
 
