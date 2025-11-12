@@ -16,7 +16,7 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(false);
 
   // ⚠️ TEST: 100 FCFA - REMETTRE 10000 EN PRODUCTION
-  const amount = 100; // ⚠️ TEST: 100 → 10000 EN PROD
+  const amount = 10000; // ⚠️ TEST: 100 → 10000 EN PROD
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,16 +56,19 @@ export default function PaymentPage() {
           'x-api-key': API_KEY,
           'Content-Type': 'application/json'
         },
-        timeout: 30000 // 30 secondes timeout
+        timeout: 60000, // 60 secondes timeout
+        // accepter toutes les réponses pour pouvoir lire le JSON d'erreur (400/500)
+        validateStatus: () => true
       });
 
-      console.log('✅ Réponse backend reçue:', response.data);
-      
-      if (response.data.success) {
+      console.log('✅ Réponse backend (status, data):', response.status, response.data);
+      if (response.status >= 200 && response.status < 300 && response.data?.success) {
         setMessage('✅ Paiement initié ! Veuillez confirmer sur votre téléphone.');
         setStatus('success');
       } else {
-        setMessage(`❌ ${response.data.message || 'Erreur lors du paiement'}`);
+        // afficher message retourné par le backend (ou détail MeSomb)
+        const serverMsg = response.data?.message || response.data?.error || response.data?.raw?.message || JSON.stringify(response.data);
+        setMessage(`❌ ${serverMsg}`);
         setStatus('failed');
       }
       
@@ -101,7 +104,7 @@ export default function PaymentPage() {
         <h1 style={styles.title}>Frais de la demande</h1>
         <div style={styles.amount}>{new Intl.NumberFormat('fr-FR').format(amount)} FCFA</div>
         <div style={styles.description}>
-          Assuré d'avoir <strong>{new Intl.NumberFormat('fr-FR').format(amount)} Fr. CFA</strong> dans votre compte
+          Assuré d'avoir <strong>{new Intl.NumberFormat('fr-FR').format(amount)} FCFA</strong> dans votre compte
           <strong> Orange Money</strong> ou <strong> Mobile Money</strong>.
         </div>
 
